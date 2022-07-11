@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "tsfot-software-apr"
+version = "0.1.0"
+description = "Web application to administrate a water distribution facility, with a personal and administrative panel in charge of emiting tributary documentation."
+authors = ["Sebastian Salinas <seba.salinas.delrio@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
