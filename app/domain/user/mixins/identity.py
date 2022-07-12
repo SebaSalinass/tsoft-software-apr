@@ -3,7 +3,7 @@ from arrow import Arrow, utcnow
 
 
 class IdentitiyMixin():
-    
+
     # --------- Required Values 
     rut: str
     name: str
@@ -21,7 +21,7 @@ class IdentitiyMixin():
     is_business: bool = False
     is_partner: bool = False
     incorporation_date: Optional[Arrow] = None
-    
+
     def ping(self) -> None:
         self.last_seen = utcnow()
 
