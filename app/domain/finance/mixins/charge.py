@@ -14,6 +14,8 @@ from ...shared.mixins.base import BaseMixin
 
 class ChargeMixin(BaseMixin):
 
+    user_id: UUID
+    public_id: str
     amount: int
     paid_amount: int = 0
 
@@ -28,8 +30,9 @@ class ChargeMixin(BaseMixin):
     transactions: List[TransactionMixin] = []
     etd: Optional[ETDMixin] = None
     credit_note: Optional[ETDMixin] = None
-    
+
     balance_id: Optional[UUID] = None
+    account_id: Optional[UUID] = None
 
     @property
     def etd_sent(self) -> bool:

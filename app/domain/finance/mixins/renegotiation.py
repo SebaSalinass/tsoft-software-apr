@@ -1,5 +1,6 @@
-from calendar import month
 from typing import List, Iterator
+from uuid import UUID
+
 from arrow import Arrow, utcnow
 
 from .charge import ChargeMixin
@@ -45,7 +46,9 @@ class InstallmentMixin(BaseMixin):
 
 
 class RenegotiationMixin(BaseMixin):
-    
+
+    user_id: UUID
+    public_id: str
     amount: int
     paid_amount: int = 0
 
@@ -53,36 +56,48 @@ class RenegotiationMixin(BaseMixin):
     charges: List[ChargeMixin] = []
     installments: List[InstallmentMixin] = []
     transactions: list[TransactionMixin] = []
-    
+
     @property
     def state(self) -> RenegotiationState:
         if self.completed:
             return RenegotiationState.COMPLETED
  
-        for installment in self.payments_left():
-            payment_state = payment.state
-            days_to_expiration = payment.days_to_expiration()
+        for installment in self.installments_left():
+            installment_state = installment.state
+            days_to_expiration = installment.days_to_expiration()
             
-            if payment_state == InstallmentState.EXPIRED:
+            if installment_state == InstallmentState.EXPIRED:
                 return RenegotiationState.OVERDUE
             
-            if payment_state == InstallmentState.PENDING and days_to_expiration > 5:
+            if installment_state == InstallmentState.PENDING and days_to_expiration > 5:
                 return RenegotiationState.UP_TO_DATE
             
-            if payment_state == InstallmentState.PENDING and days_to_expiration <= 5:
+            if installment_state == InstallmentState.PENDING and days_to_expiration <= 5:
                 return RenegotiationState.PENDING
 
-
     def installments_left(self) -> Iterator[InstallmentMixin]:
-        return filter(lambda i: i.state != InstallmentState.COMPLETED, self.installments)
-    
+        """Returns all of the not completed installments in this renegotiation.
+
+        Yields:
+            Iterator[InstallmentMixin]: Installment not completed
+        """
+        yield from filter(lambda installment: not installment.completed, self.installments)
+
+    def expired_installments(self) -> Iterator[InstallmentMixin]:
+        """Returns all of the expired installments in this renegotiation.
+
+        Yields:
+            Iterator[InstallmentMixin]: Installment expired
+        """
+        yield from filter(lambda installment: installment.expires_at <= utcnow().to('America/Santiago'), self.installments_left())
+
     def amount_to_be_paid(self) -> int:
         """Shortcut for `self.amount - self.paid_amount`
         """
         return self.amount - self.paid_amount
 
     def current_amount_to_be_paid(self) -> int:        
-        return sum([payment.amount_to_be_paid() for payment in filter(lambda p: p.expires_at <= utcnow(), self.payments_left())])
+        return sum([installment.amount_to_be_paid() for installment in self.expired_installments()])
 
     def has_expired_over(self, months: int = 1, days: int = 0) -> bool:
         """Verifies if the current Charge object has expired over the given time
