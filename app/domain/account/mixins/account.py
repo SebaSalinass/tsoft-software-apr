@@ -24,7 +24,7 @@ class AccountMixin(BaseMixin):
     last_13: Optional[dict[str, int]] = {}
 
     # Discount Properties -----------------------------------------------------
-    subsidy_type: Optional[SubsidyType] = None
+    subsidy_type: SubsidyType = SubsidyType.NONE
     subsidy_amount: Optional[int] = None
     fst_leg_exent: bool = False
     fixed_charge_exent: bool = False
@@ -63,10 +63,10 @@ class AccountMixin(BaseMixin):
         return self.current_water_meter.last_consumption()
     
     def pending_charges(self) -> Iterator[ChargeMixin]:
-        yield from filter(lambda charge: not charge.completed and not charge.renegotiated, self.charges)
+        yield from filter(lambda charge: charge.is_pending, self.charges)
     
     def pending_renegotiations(self) -> Iterator[RenegotiationMixin]:
-        yield from filter(lambda renegotiation: not renegotiation.completed, self.renegotiations)
+        yield from filter(lambda renegotiation: renegotiation.is_pending, self.renegotiations)
 
     def insert_watermeter(self, water_meter: WaterMeterMixin) -> None:
         """Safely inserts a new watermeter an sets it ass the current one for this account"""
@@ -82,18 +82,18 @@ class AccountMixin(BaseMixin):
         """The total amount of water consumption for this account"""
         return sum([water_meter.consumption for water_meter in self.water_meters])
 
-    def outstanding_balance(self) -> int:
-        """Adds charges amount to be paid and renegotiation current amount to be paid"""
-        ob_charge = sum([charge.amount_to_be_paid() for charge in self.pending_charges()])
-        ob_renegotiation = sum([renegotiation.current_amount_to_be_paid() for renegotiation in self.pending_renegotiations()])
-        return ob_charge + ob_renegotiation
-
-    def amount_to_be_paid(self) -> int:
+    def debt(self) -> int:
         """Adds charges amount to be paid and renegotiation amount to be paid"""
-        atbp_charges = sum([charge.amount_to_be_paid() for charge in self.pending_charges()])
-        atbp_renegotiations = sum([renegotiation.amount_to_be_paid() \
+        debt_charges = sum([charge.debt() for charge in self.pending_charges()])
+        debt_renegotiations = sum([renegotiation.debt() \
                                     for renegotiation in self.pending_renegotiations()])
-        return atbp_charges + atbp_renegotiations
+        return debt_charges + debt_renegotiations
+
+    def current_debt(self) -> int:
+        """Adds charges amount to be paid and renegotiation current amount to be paid"""
+        ob_charge = sum([charge.debt() for charge in self.pending_charges()])
+        ob_renegotiation = sum([renegotiation.current_debt() for renegotiation in self.pending_renegotiations()])
+        return ob_charge + ob_renegotiation
 
     def update_last_13(self, month: Arrow, consumption: int ) -> None:
         """Safely inserts month and consumption to last_13 set.

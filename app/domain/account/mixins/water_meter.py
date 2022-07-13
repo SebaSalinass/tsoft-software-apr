@@ -3,6 +3,7 @@ from uuid import UUID
 from arrow import Arrow, utcnow
 
 from ...shared.mixins.base import BaseMixin
+from ...shared.mixins.activable import ActivableMixin
 from ..exceptions import ReadingInsertionError
 
 
@@ -26,12 +27,11 @@ class ReadingMixin(BaseMixin):
         return self.value < other.value
 
 
-class WaterMeterMixin:
+class WaterMeterMixin(ActivableMixin):
 
     top_limit: int = 9999
     consumption: int = 0
     serial_number: Optional[str] = None
-    current: bool = False
 
     current_reading: Optional[ReadingMixin] = None
     previous_reading: Optional[ReadingMixin] = None
