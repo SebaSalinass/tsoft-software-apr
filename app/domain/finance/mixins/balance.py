@@ -2,7 +2,7 @@ from typing import List
 from arrow import Arrow, utcnow
 
 from ...shared.mixins.base import BaseMixin
-from .movements import EntryMixin, ExpenseMixin
+from .extras import EntryMixin, ExpenseMixin
 from .transaction import TransactionMixin
 from .charge import ChargeMixin
 

@@ -15,10 +15,12 @@ class InstallmentMixin(BaseMixin):
     expires_at: Arrow
 
     completed: bool = False
+    
+    renegotiation_id: UUID
 
     @property
     def is_deletable(self) -> bool:
-        return self.amount_to_be_paid() == self.amount
+        return self.debt() == self.amount
 
     @property
     def state(self) -> InstallmentState:
@@ -30,7 +32,7 @@ class InstallmentMixin(BaseMixin):
 
         return InstallmentState.PENDING
 
-    def amount_to_be_paid(self) -> int:
+    def debt(self) -> int:
         '''
         Shortcut for `self.amount - self.paid_amount`
         '''
@@ -56,6 +58,10 @@ class RenegotiationMixin(BaseMixin):
     charges: List[ChargeMixin] = []
     installments: List[InstallmentMixin] = []
     transactions: list[TransactionMixin] = []
+    
+    @property
+    def is_pending(self) -> bool:
+        return not self.completed
 
     @property
     def state(self) -> RenegotiationState:
@@ -91,13 +97,13 @@ class RenegotiationMixin(BaseMixin):
         """
         yield from filter(lambda installment: installment.expires_at <= utcnow().to('America/Santiago'), self.installments_left())
 
-    def amount_to_be_paid(self) -> int:
+    def debt(self) -> int:
         """Shortcut for `self.amount - self.paid_amount`
         """
         return self.amount - self.paid_amount
 
-    def current_amount_to_be_paid(self) -> int:        
-        return sum([installment.amount_to_be_paid() for installment in self.expired_installments()])
+    def current_debt(self) -> int:        
+        return sum([installment.debt() for installment in self.expired_installments()])
 
     def has_expired_over(self, months: int = 1, days: int = 0) -> bool:
         """Verifies if the current Charge object has expired over the given time
@@ -143,35 +149,4 @@ class RenegotiationMixin(BaseMixin):
         self.transactions.append(transaction)
         self.completed = (self.amount_to_be_paid() == 0)
     
-"""
-    @classmethod
-    def construct_from_charges(cls, charges: list[ChargeMixin],  payment_cls: Callable[..., PaymentMixin],
-                               installments: int, start_exp_date: Arrow = None) -> 'PaymentPlanMixin':
-        assert installments > 1
-        
-        start_exp_date = start_exp_date.to('utc') if start_exp_date else utcnow()
-        total_amount = sum([charge.amount for charge in charges])
-        paid_amount = sum([charge.paid_amount for charge in charges])
 
-        # Calculate installments ----------------------------------------------
-        quota_total = total_amount - paid_amount
-        quota_amount = int(round(quota_total / installments, 0))
-        quota_rest = quota_amount % 10
-
-        payments = []
-        if quota_rest:
-            quota_amount -= quota_rest
-
-        for i in range(installments):
-            if i == installments - 1:
-                quota_amount = quota_total - (quota_amount * (installments - 1)) 
-            
-            payment = payment_cls(amount=quota_amount, expires_at=start_exp_date.shift(months=i))
-            payments.append(payment)
-        
-        
-        for charge in charges:
-            charge.in_payment_plan = True
-
-        return cls(amount=quota_total, charges=charges, payments=payments)
-"""

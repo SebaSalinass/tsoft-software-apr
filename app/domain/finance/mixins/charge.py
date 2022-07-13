@@ -8,7 +8,7 @@ from ...service.mixins.service import ServiceMixin
 from .transaction import TransactionMixin
 from ..constants import ChargeState
 from ...shared.mixins.base import BaseMixin
-#from ...etd.mixins.etd import ETDMixin
+from ...etd.mixins.etd import ETDMixin
 
 
 
@@ -32,11 +32,10 @@ class ChargeMixin(BaseMixin):
     credit_note: Optional[ETDMixin] = None
 
     balance_id: Optional[UUID] = None
-    account_id: Optional[UUID] = None
 
     @property
     def etd_sent(self) -> bool:
-        return self.etd.sii_sent if self.etd else False
+        return self.etd.sii_sent
 
     @property
     def is_deletable(self) -> bool:
@@ -45,6 +44,10 @@ class ChargeMixin(BaseMixin):
     @property
     def is_nullable(self) -> bool:
         return not self.is_deletable and self.paid_amount == 0
+
+    @property
+    def is_pending(self) -> bool:
+        return not self.completed and not self.renegotiated and not self.nulled
 
     @property
     def state(self) -> ChargeState:
@@ -62,7 +65,7 @@ class ChargeMixin(BaseMixin):
         
         return ChargeState.PENDING
 
-    def amount_to_be_paid(self) -> int:
+    def debt(self) -> int:
         """Shortcut for `self.amount - self.paid_amount`
         """
         return self.amount - self.paid_amount

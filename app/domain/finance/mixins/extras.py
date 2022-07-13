@@ -6,7 +6,6 @@ from ...shared.mixins.base import BaseMixin
 from ..constants import TransactionType
 
 class ExpenseMixin(BaseMixin):
-    """Basic expense mixin"""
 
     amount: int
     receptor: str
