@@ -1,18 +1,16 @@
 from uuid import UUID, uuid4
-from typing import Any, Union
+from typing import Optional, Union
 
+from arrow import Arrow
 from sqlalchemy_utils import UUIDType, ArrowType
 from sqlalchemy.orm import validates
 
-from .shared.address import Address
 from ..db import db
 from ..utils.validators import (validate_rut, validate_business_name, 
                               validate_user_name, valid_phone, validate_email)
-
 from ..domain.user.mixins.user import UserMixin
 from ..domain.user.mixins.role import RoleMixin
 from ..domain.user.constants import Permission
-
 from .shared.base import Model
 from .secondaries.user import users_roles, users_incorporation_charges
 
@@ -102,9 +100,7 @@ class User(Model, UserMixin):
     contact = db.Column(db.String(12))
     # ----------- Optional Platform information 
     last_seen = db.Column(ArrowType)
-    is_active = db.Column(db.Boolean, default=True)
-    is_business = db.Column(db.Boolean, default=False)
-    is_partner = db.Column(db.Boolean, default=False)
+    active = db.Column(db.Boolean, default=True)
     incorporation_date = db.Column(ArrowType)
     # ----------- Auth Mixin
     password_hash = db.Column(db.LargeBinary(128), nullable=False)
@@ -117,17 +113,6 @@ class User(Model, UserMixin):
     
     incorporation_charge = db.relationship('Charge', secondary=users_incorporation_charges, uselist=False)
     accounts = db.relationship('Account', backref='user', uselist=True, order_by='Account.created_at')
-    
-
-
-    @classmethod
-    def clean_kwargs(cls, kwargs: dict) -> dict[str, Any]:
-        kwargs_copy = kwargs.copy()
-        for key in kwargs.keys():
-            if not hasattr(cls, key):
-                kwargs_copy.pop(key)
-        
-        return kwargs_copy
 
     @validates('rut', 'name', 'fst_sur', 'snd_sur', 'email', 'contact', 'is_business')
     def validate_data(self, key: str, value: str) -> Union[str, None, bool]:
@@ -140,11 +125,6 @@ class User(Model, UserMixin):
                 return None
             assert validate_user_name(value)
             return value.lower()
-
-        elif key == 'is_business':
-            if value == True:
-                assert self.name is not None
-            return value
         
         elif key == 'name':
             assert value is not None and (validate_user_name(value) or validate_business_name(value))
@@ -164,24 +144,17 @@ class User(Model, UserMixin):
 
 
     @classmethod
-    def new_business_user(cls, rut: str, name: str, business_activity: str, address: dict[str, str],
-                          role: Role = None, password: str = None, **kwargs) -> 'User':
-        password = password or rut[0:6]
-        address = Address(**address)
-        kwargs_copy = cls.clean_kwargs(kwargs)
+    def new(cls, rut: str, name: str, fst_sur: Optional[str] = None, business_activity: Optional[str] = None,
+            snd_sur: Optional[str] = None, email: Optional[str] = None, contact: Optional[str] = None, 
+            incorporation_date: Optional[Arrow] = None, role: Optional[Role] = None, **kwargs) -> 'User':
         
-        return cls(rut=rut, name=name, business_activity=business_activity, password=password,
-                   address=address, is_business=True, role=role or Role.default_role(), 
-                   **kwargs_copy)
-    
-
-    @classmethod
-    def new_person_user(cls, rut: str, name: str, fst_sur: str, role: Role = None, password: str = None, 
-                        **kwargs) -> 'User':
-        password = password or rut[0:6]
-        kwargs_copy = cls.clean_kwargs(kwargs)
-        return cls(rut=rut, name=name, fst_sur=fst_sur,  password=password, 
-                   role=role or Role.default_role(), **kwargs_copy)
+        assert (fst_sur and not business_activity) or (business_activity and not fst_sur)
+        password = kwargs.get('password', rut[0:6])
+        role = role or Role.default_role()
+        
+        return cls(rut=rut, name=name, fst_sur=fst_sur, business_activity=business_activity, snd_sur=snd_sur,
+                   password=password, email=email, contact=contact, incorporation_date=incorporation_date,
+                   role=role)
 
 
     @classmethod

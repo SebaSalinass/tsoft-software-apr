@@ -17,13 +17,18 @@ class IdentitiyMixin():
     contact: Optional[str] = None
     # ----------- Optional information 
     last_seen: Optional[Arrow] = None
-    is_active: bool = True
-    is_business: bool = False
-    is_partner: bool = False
     incorporation_date: Optional[Arrow] = None
 
     def ping(self) -> None:
         self.last_seen = utcnow()
+        
+    @property
+    def is_business(self) -> bool:
+        return self.business_activity is not None
+    
+    @property
+    def is_partner(self) -> bool:
+        return self.incorporation_date is not None
 
     @property
     def fullname(self) -> str:

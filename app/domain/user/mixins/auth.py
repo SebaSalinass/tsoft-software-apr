@@ -11,6 +11,7 @@ class AuthMixin():
     
     id: Optional[UUID]
     password_hash: bytes
+    active: bool = True
 
     
     @property
@@ -29,6 +30,10 @@ class AuthMixin():
     @property
     def is_anonymous(self) -> bool:
         return False
+    
+    @property
+    def is_active(self) -> bool:
+        return self.active
 
     def get_id(self) -> str:
         return str(self.id)
